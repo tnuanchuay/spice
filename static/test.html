@@ -1,0 +1,22 @@
+<html>
+    <head>
+    </head>
+    <body>
+        <input type="text" id="payload"/>
+        <button type="button" id="send">send</button>
+    </body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.4/socket.io.slim.js"></script>
+    <script>
+        $(document).ready(() => {
+            var socket = io.connect({
+                path:"/wd/4512265a2781b0aef9eb99f5489b761065933b99"
+            });
+
+            $("#send").click(() => {
+                var data = $("#payload").val();
+                socket.send("Target.createTarget", { url : data });
+            });
+        });
+    </script>
+</html>
