@@ -3,6 +3,8 @@ const config = require('./config.js');
 const sha1 = require('sha1');
 const path = require('path');
 const express = require('express');
+const Connection = require('puppeteer/lib/Connection').Connection;
+const WebSocket = require('ws');
 
 var app = express();
 var server = require('http').Server(app);
@@ -12,25 +14,45 @@ app.use(express.static('static'));
 
 app.get("/new", async (req, res) => {
     const browser = await puppeteer.launch({headless:false});
-    const endpoint = browser.wsEndpoint();
-    const wdpath = sha1(endpoint);
+    browser.disconnect();
 
-    const io = require('socket.io')(server, {path:`/wd/${wdpath}`});
+    const bwendpoint = browser.wsEndpoint();
+    const internalws = new WebSocket(bwendpoint);
 
-    io.on('connection', function (socket) {
-        socket.on('message', function (data, d2) {
-            browser.connection().send(data, d2);
+    const pxpath = `/wd/${sha1(bwendpoint)}`;
+    const wss = new WebSocket.Server({ port:12345, path:pxpath });
+
+    wss.on('connection', (ws, req) => {
+        ws.on('message', (msg) => {
+            const jsonmsg = JSON.parse(msg);
+            console.log("->", jsonmsg.method, jsonmsg.params);
+            internalws.send(msg);
+        })
+
+        internalws.on('message', (msg) => {
+            const jsonmsg = JSON.parse(msg);
+            console.log("<-", msg);
+            ws.send(msg)
+        })
+
+        wss.on('disconnect', () => {
+            
         });
     });
 
+    console.log(`create new ${bwendpoint} endpoint = ${pxpath}`);
+
     const newState = {
-        endpoint : endpoint,
+        endpoint : bwendpoint,
         instance : browser,
-        iopath:io.path()
+        iopath:pxpath
     }
 
     state.push(newState);
-    res.json(newState.iopath).end();
+
+    res.json({
+        path:pxpath
+    }).end();
 });
 
 server.listen(config.http.port, () => {
