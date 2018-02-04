@@ -20,8 +20,25 @@ app.get("/new", async (req, res) => {
     const internalws = new WebSocket(bwendpoint);
 
     const pxpath = `/wd/${sha1(bwendpoint)}`;
-    const wss = new WebSocket.Server({ port:12345, path:pxpath });
+    const wss = await new WebSocket.Server({ port:0, path:pxpath });
 
+    wss.on('listening', (s) => {
+        const port = wss.port();
+        console.log(`create new ${bwendpoint} endpoint = ${pxpath}`);
+
+        const newState = {
+            endpoint : bwendpoint,
+            instance : browser,
+            iopath:pxpath
+        }
+    
+        state.push(newState);
+        res.json({
+            path:pxpath,
+            port:port
+        }).end();
+    });
+    
     wss.on('connection', (ws, req) => {
         ws.on('message', (msg) => {
             const jsonmsg = JSON.parse(msg);
@@ -35,24 +52,11 @@ app.get("/new", async (req, res) => {
             ws.send(msg)
         })
 
-        wss.on('disconnect', () => {
-            
+        wss.on('disconnect', async () => {
+            b = await puppeteer.connect(bwendpoint);
+            await b.close();
         });
     });
-
-    console.log(`create new ${bwendpoint} endpoint = ${pxpath}`);
-
-    const newState = {
-        endpoint : bwendpoint,
-        instance : browser,
-        iopath:pxpath
-    }
-
-    state.push(newState);
-
-    res.json({
-        path:pxpath
-    }).end();
 });
 
 server.listen(config.http.port, () => {
